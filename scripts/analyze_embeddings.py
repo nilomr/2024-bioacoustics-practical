@@ -1,8 +1,5 @@
-import dis
 import json
-from audioop import add
 from pathlib import Path
-from turtle import color, title
 
 import cuml
 import librosa
@@ -10,10 +7,14 @@ import librosa.display
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
+from scipy.cluster import hierarchy
 
 rootdir = Path(__file__).parent.parent
 detections_file = Path(rootdir, "data", "derived", "detections.json")
 embeddings_file = Path(rootdir, "data", "derived", "embeddings.json")
+figs_dir = Path(rootdir, "figures", "embeddings")
+figs_dir.mkdir(parents=True, exist_ok=True)
 
 # ──── PLOT SETTINGS ──────────────────────────────────────────────────────────
 
@@ -100,23 +101,46 @@ X = np.array(df["embeddings"].tolist())
 umap_embedding = cuml.UMAP(n_neighbors=30, min_dist=0.1, n_components=3).fit_transform(
     X
 )
+
 df.loc[:, "umap_x"] = umap_embedding[:, 0]
 df.loc[:, "umap_y"] = umap_embedding[:, 1]
+
+# Plot the embedding without colors (all points #eaeaea)
+plt.figure(figsize=(figwidth, figwidth))
+plt.scatter(df["umap_x"], df["umap_y"], color="#eaeaea", s=0.5, alpha=0.2)
+plt.title("All embeddings")
+plt.xlabel("UMAP 1")
+plt.ylabel("UMAP 2")
+plt.xticks([])
+plt.yticks([])
+plt.gca().set_aspect(0.63)
+plt.savefig(Path(figs_dir, "embeddings.png"))
 
 
 # Plot the embeddings colored by species
 plt.figure(figsize=(figwidth, figwidth))
-# Plot the embeddings colored by species, with 'Unknown' plotted first
+palette = plt.get_cmap(
+    "tab20b", len(df[df["common_name"] != "Unknown"]["common_name"].unique())
+)
 plt.scatter(
     df[df["common_name"] == "Unknown"]["umap_x"],
     df[df["common_name"] == "Unknown"]["umap_y"],
     label="Unknown",
-    alpha=0.1,
+    alpha=0.05,
     color="#eaeaea",
-    s=1,
+    s=1.5,
 )
-for species, group in df[df["common_name"] != "Unknown"].groupby("common_name"):
-    plt.scatter(group["umap_x"], group["umap_y"], label=species, alpha=0.5, s=2)
+for i, (species, group) in enumerate(
+    df[df["common_name"] != "Unknown"].groupby("common_name")
+):
+    plt.scatter(
+        group["umap_x"],
+        group["umap_y"],
+        label=species,
+        alpha=0.5,
+        s=1.5,
+        color=palette(i),
+    )
 plt.title("Embeddings colored by species")
 plt.xlabel("UMAP 1")
 plt.ylabel("UMAP 2")
@@ -134,7 +158,8 @@ for handle in legend.legend_handles:
     handle.set_alpha(1)
 plt.xticks([])
 plt.yticks([])
-plt.show()
+plt.gca().set_aspect(0.63)
+plt.savefig(Path(figs_dir, "embeddings_species.png"))
 
 
 # Plot the embeddings colored by site
@@ -147,7 +172,7 @@ for i, (site, group) in enumerate(df.groupby("site")):
         color=site_palette(i),
         edgecolors="none",
         alpha=0.5,
-        s=2,
+        s=1.5,
     )
 plt.title("Embeddings colored by site")
 plt.xlabel("UMAP 1")
@@ -166,11 +191,11 @@ for handle in legend.legend_handles:
     handle.set_alpha(1)
 plt.xticks([])
 plt.yticks([])
-plt.show()
+plt.gca().set_aspect(0.63)
+plt.savefig(Path(figs_dir, "embeddings_site.png"))
+
 
 # Plot the embeddings colored by time
-# Create a time palette based on spectral palette
-
 time_palette = plt.get_cmap("Spectral", len(np.unique(df.time)) // 2)
 time_palette = [time_palette(i) for i in range((len(np.unique(df.time)) // 2) + 1)][
     ::-1
@@ -183,26 +208,32 @@ for i, (time, group) in enumerate(df.sort_values("time").groupby("time")):
         group["umap_x"],
         group["umap_y"],
         label=time,
-        alpha=0.5,
-        s=1,
+        alpha=0.2,
+        s=0.5,
         color=time_palette[i],
     )
 plt.title("Embeddings colored by time")
 plt.xlabel("UMAP 1")
 plt.ylabel("UMAP 2")
-# add a colorbar legend based on time
 sm = plt.cm.ScalarMappable(
     cmap=plt.cm.colors.ListedColormap(time_palette),
     norm=plt.Normalize(vmin=0, vmax=len(df["time"].unique())),
 )
 sm.set_array([])
 cbarticks = [time.strftime("%H:%M") for time in sorted(df["time"].unique())][::12][::-1]
-cb = plt.colorbar(sm, ax=plt.gca(), ticks=range(0, len(df["time"].unique()), 12))
+cb = plt.colorbar(
+    sm,
+    fraction=0.046,
+    pad=0.04,
+    ax=plt.gca(),
+    ticks=range(0, len(df["time"].unique()), 12),
+)
 cb.ax.set_yticklabels(cbarticks)
 cb.ax.set_ylim(0, len(df["time"].unique()))  # Set the colorbar height
+plt.gca().set_aspect(0.63)
 plt.xticks([])
 plt.yticks([])
-plt.show()
+plt.savefig(Path(figs_dir, "embeddings_time.png"))
 
 
 # Cluster the embeddings using HDBSCAN
@@ -218,7 +249,7 @@ for i, (cluster, group) in enumerate(df.groupby("cluster")):
             label=cluster,
             color="grey",
             alpha=0.1,
-            s=1,
+            s=0.5,
         )
     else:
         plt.scatter(
@@ -226,7 +257,7 @@ for i, (cluster, group) in enumerate(df.groupby("cluster")):
             group["umap_y"],
             label=cluster,
             alpha=0.5,
-            s=2,
+            s=0.5,
             color=cluster_palette_4[cluster],
         )
 plt.title("Embeddings colored by cluster")
@@ -246,7 +277,8 @@ for handle in legend.legend_handles:
     handle.set_alpha(1)
 plt.xticks([])
 plt.yticks([])
-plt.show()
+plt.gca().set_aspect(0.63)
+plt.savefig(Path(figs_dir, "embeddings_cluster.png"))
 
 
 # Plot sample spectrograms for each cluster
@@ -299,61 +331,97 @@ for cluster, group in df.groupby("cluster"):
                 color=cluster_palette_4[cluster],
             )
 plt.tight_layout()
-plt.show()
+plt.savefig(Path(figs_dir, "embeddings_cluster_spectrograms.png"))
 
-# Get a separate dataframe with the data for cluster == 0
-df_cluster_0 = df[df["cluster"] == 0]
+# get file names for cluster 2
+cluster_2_files = df[df["cluster"] == 2][
+    ["site", "file_name", "start_time", "end_time"]
+]
 
 
 # ──── PLOT EMBEDDINGS FOR BIRDS ONLY ─────────────────────────────────────────
 
-# filter rows with no detections
-df_detections = df.dropna(subset=["common_name"])
+
+df_bird_detections = df[df["common_name"] != "Unknown"]
 
 # project embeddings to 2D using UMAP
-X = np.array(df_detections["embeddings"].tolist())
-umap_embedding = cuml.UMAP(n_neighbors=10, min_dist=0.07, n_components=3).fit_transform(
-    X
-)
+X = np.array(df_bird_detections["embeddings"].tolist())
+umap_embedding_birds = cuml.UMAP(
+    n_neighbors=10, min_dist=0.1, n_components=2
+).fit_transform(X)
 
-df_detections.loc[:, "umap_x"] = umap_embedding[:, 0]
-df_detections.loc[:, "umap_y"] = umap_embedding[:, 1]
+df_bird_detections.loc[:, "umap_x"] = umap_embedding_birds[:, 0]
+df_bird_detections.loc[:, "umap_y"] = umap_embedding_birds[:, 1]
 
 # plot the embeddings colored by species
-plt.figure(figsize=(10, 6))
-for species, group in df_detections.groupby("common_name"):
-    plt.scatter(group["umap_x"], group["umap_y"], label=species, alpha=0.5)
-plt.title("Embeddings colored by species")
+plt.figure(figsize=(figwidth, figwidth))
+palette = plt.get_cmap("tab20", len(df_bird_detections["common_name"].unique()))
+for i, (species, group) in enumerate(df_bird_detections.groupby("common_name")):
+    plt.scatter(
+        group["umap_x"],
+        group["umap_y"],
+        label=species,
+        s=2,
+        alpha=0.85,
+        color=palette(i),
+    )
+plt.title("Bird embeddings colored by species")
 plt.xlabel("UMAP 1")
 plt.ylabel("UMAP 2")
-plt.legend()
-plt.show()
+plt.legend(
+    frameon=False,
+    handletextpad=0.1,
+    fontsize=textsize * 0.7,
+    title="Species",
+    title_fontsize=textsize * 0.7,
+    bbox_to_anchor=(1.02, 1),
+    loc="upper left",
+)
+plt.xticks([])
+plt.yticks([])
+for handle in plt.gca().get_legend().legendHandles:
+    handle.set_sizes([50.0])
+    handle.set_alpha(1)
+plt.gca().set_aspect(0.8)
+plt.savefig(Path(figs_dir, "embeddings_birds_species.png"))
 
 # Now color by site
-plt.figure(figsize=(10, 6))
-for site, group in df_detections.groupby("site"):
-    plt.scatter(group["umap_x"], group["umap_y"], label=site, alpha=0.5)
-plt.title("Embeddings colored by site")
+plt.figure(figsize=(figwidth, figwidth))
+for i, (site, group) in enumerate(df_bird_detections.groupby("site")):
+    plt.scatter(
+        group["umap_x"], group["umap_y"], label=site, s=2, alpha=0.85, c=site_palette(i)
+    )
+plt.title("Bird embeddings colored by site")
 plt.xlabel("UMAP 1")
 plt.ylabel("UMAP 2")
-plt.legend()
-plt.show()
+plt.legend(
+    frameon=False,
+    handletextpad=0.1,
+    fontsize=textsize * 0.7,
+    title="Site",
+    title_fontsize=textsize * 0.7,
+    bbox_to_anchor=(1.02, 1),
+    loc="upper left",
+)
+plt.xticks([])
+plt.yticks([])
+for handle in plt.gca().get_legend().legendHandles:
+    handle.set_sizes([50.0])
+    handle.set_alpha(1)
+plt.gca().set_aspect(0.8)
+plt.savefig(Path(figs_dir, "embeddings_birds_site.png"))
 
 
 # ──── WREN ANALYSIS ──────────────────────────────────────────────────────────
 
-X = np.array(
-    df_detections[df_detections["common_name"] == "Eurasian Wren"][
-        "embeddings"
-    ].tolist()
-)
-umap_embedding = cuml.UMAP(
-    metric="euclidean", n_neighbors=10, min_dist=0.07, n_components=3
+X = np.array(df[df["common_name"] == "Eurasian Wren"]["embeddings"].tolist())
+umap_embedding_wren = cuml.UMAP(
+    metric="euclidean", n_neighbors=10, min_dist=0.1, n_components=2
 ).fit_transform(X)
 
-wren_df = df_detections[df_detections["common_name"] == "Eurasian Wren"]
-wren_df.loc[:, "umap_x"] = umap_embedding[:, 0]
-wren_df.loc[:, "umap_y"] = umap_embedding[:, 1]
+wren_df = df[df["common_name"] == "Eurasian Wren"]
+wren_df.loc[:, "umap_x"] = umap_embedding_wren[:, 0]
+wren_df.loc[:, "umap_y"] = umap_embedding_wren[:, 1]
 
 
 plt.figure(figsize=(figwidth, figwidth))
@@ -372,22 +440,25 @@ plt.ylabel("UMAP 2", color="white", fontsize=textsize)
 legend = plt.legend(
     frameon=False,
     handletextpad=0.1,
-    fontsize=textsize * 0.7,
+    fontsize=textsize,
     title="Site",
-    title_fontsize=textsize * 0.7,
+    title_fontsize=textsize,
+    bbox_to_anchor=(1.02, 1),
+    loc="upper left",
 )
 for handle in legend.legend_handles:
     handle.set_sizes([50.0])
     handle.set_alpha(1)
 plt.xticks([])
 plt.yticks([])
+plt.gca().set_aspect(0.63)
 plt.title("Eurasian Wren embeddings by site", fontsize=textsize)
-plt.show()
+plt.savefig(Path(figs_dir, "wren_sites.png"))
 
 # ──── CLUSTER WREN DATA ──────────────────────────────────────────────────────
 
 clusterer = cuml.HDBSCAN(min_samples=10, min_cluster_size=5)
-wren_df.loc[:, "cluster"] = clusterer.fit_predict(umap_embedding)
+wren_df.loc[:, "cluster"] = clusterer.fit_predict(umap_embedding_wren)
 
 plt.figure(figsize=(figwidth, figwidth))
 for i, (cluster, group) in enumerate(wren_df.groupby("cluster")):
@@ -404,7 +475,15 @@ for i, (cluster, group) in enumerate(wren_df.groupby("cluster")):
     )
 plt.xlabel("UMAP 1", color="white", fontsize=textsize)
 plt.ylabel("UMAP 2", color="white", fontsize=textsize)
-legend = plt.legend(frameon=False, handletextpad=0.1, fontsize=textsize)
+legend = plt.legend(
+    frameon=False,
+    handletextpad=0.1,
+    fontsize=textsize,
+    title="Cluster",
+    title_fontsize=textsize,
+    bbox_to_anchor=(1.02, 1),
+    loc="upper left",
+)
 for text in legend.get_texts():
     text.set_color("white")
 for handle in legend.legend_handles:
@@ -412,8 +491,9 @@ for handle in legend.legend_handles:
     handle.set_alpha(1)
 plt.xticks([])
 plt.yticks([])
+plt.gca().set_aspect(0.63)
 plt.title("Eurasian Wren embeddings by cluster", fontsize=textsize)
-plt.show()
+plt.savefig(Path(figs_dir, "wren_clusters.png"))
 
 
 # get the file names and times for each cluster
@@ -470,8 +550,10 @@ for cluster, files in cluster_files.items():
                 fontweight="bold",
                 color=cluster_palette[cluster],
             )
+        # print file name and cluster
+        print(f"File name: {file_name} from cluster {cluster} and site {site}")
 plt.tight_layout()
-plt.show()
+plt.savefig(Path(figs_dir, "wren_clusters_spectrograms.png"))
 
 
 # ──── DISTANCE BETWEEN EMBEDDINGS FOR EACH SITE ACROSS TIME ──────────────────
@@ -511,6 +593,7 @@ mcombs = [site_combinations_df] * len(site_time_embeddings)
 site_combinations_df = pd.concat(mcombs, ignore_index=True)
 distances_df = pd.concat([distances_df, site_combinations_df], axis=1)
 distances_df.rename(columns={"embeddings": "distance"}, inplace=True)
+distances_df = distances_df[distances_df["site1"] != distances_df["site2"]]
 
 # Plot the distance between sites over time
 
@@ -529,9 +612,9 @@ for i, (site, group) in enumerate(site_distances.groupby("site1")):
         color=site_palette(i),
     )
 
-plt.title("Average distance between sites over time", fontsize=textsize)
-plt.xlabel("Time", fontsize=textsize)
-plt.ylabel("Dissimilarity", fontsize=textsize)
+plt.title("Average 'acoustic' distance between sites over time", fontsize=textsize)
+plt.xlabel("Time", fontsize=textsize, labelpad=10)
+plt.ylabel("Dissimilarity", fontsize=textsize, labelpad=10)
 plt.xticks(rotation=0, fontsize=textsize)
 plt.gca().xaxis.set_major_locator(plt.MaxNLocator(10))
 plt.legend(
@@ -541,7 +624,49 @@ plt.legend(
     title="Site",
     title_fontsize=textsize,
     frameon=False,
-    handletextpad=0.1,
+    handletextpad=0.6,
     markerscale=5,
 )
-plt.show()
+# make legend markers bigger and alpha 1
+for handle in plt.gca().get_legend().legendHandles:
+    handle.set_linewidth(7)
+    handle.set_alpha(1)
+plt.savefig(Path(figs_dir, "site_distances.png"))
+
+# Get the point change for AM49
+site_AM49 = site_distances[site_distances["site1"] == "AM49"].reset_index(drop=True)
+site_AM49.loc[:, "change"] = site_AM49["distance"].diff()
+site_AM49.loc[:, "change"] = site_AM49["change"].abs()
+max_change = site_AM49.iloc[site_AM49["change"].idxmax()]
+max_change_idx = site_AM49.index.get_loc(max_change.name)
+max_change = site_AM49.iloc[max_change_idx - 2 : max_change_idx + 3].reset_index(
+    drop=True
+)
+max_change["filename"] = max_change["datetime"].dt.strftime("%Y%m%d_%H%M%S")
+# Answer: rain
+
+
+# Calculate mean embedding per site
+site_embeddings = (
+    df[df["common_name"] != "Unknown"]
+    .groupby("site")["embeddings"]
+    .apply(lambda x: np.mean(x.tolist(), axis=0))
+    .reset_index()
+)
+
+# Calculate a distance matrix between sites and plot it
+site_distances = np.array(site_embeddings["embeddings"].tolist())
+site_distances = np.linalg.norm(site_distances[:, None] - site_distances, axis=2)
+
+plt.figure(figsize=(10, 10))
+site_distances_no_diag = np.copy(site_distances)
+np.fill_diagonal(site_distances_no_diag, np.nan)
+# Scale the distances between 0 and 1
+plt.imshow(site_distances_no_diag, cmap="viridis", interpolation="none")
+colorbar = plt.colorbar(label="Distance", fraction=0.046, pad=0.04)
+colorbar.ax.tick_params(labelsize=textsize)
+colorbar.set_label("Distance", fontsize=textsize)
+plt.xticks(range(len(site_list)), site_list, rotation=0, fontsize=textsize)
+plt.yticks(range(len(site_list)), site_list, fontsize=textsize)
+plt.title("Average distance between Sites", fontsize=textsize)
+plt.savefig(Path(figs_dir, "site_distances_matrix.png"))

@@ -118,13 +118,10 @@ def process_site(rootdir, site):
     return idc_per_bin
 
 
-def plot_spectrogram(idc_per_bin, site_name, savefig=True):
+def plot_spectrogram(idc_per_bin, site_name, savefig=False):
     fcarray = false_Color_Spectro(
         idc_per_bin, display=False, unit="hours", figsize=[30, 20]
     )
-    channel_mapping = {"red": 0, "green": 1, "blue": 2}
-
-    # prepare ticks
     xticks = idc_per_bin.index
     start_time = idc_per_bin.index[0]
     end_time = idc_per_bin.index[-1]
@@ -137,22 +134,18 @@ def plot_spectrogram(idc_per_bin, site_name, savefig=True):
     xticks_hour = pd.date_range(
         start=start_hour + datetime.timedelta(hours=1), end=end_hour, freq="2h"
     )
-
     yticks = idc_per_bin.iloc[0]["frequencies"]
-
+    mod_fcarray = fcarray[0].copy()
+    mod_fcarray[:, :, :2] = 1 - mod_fcarray[:, :, :2]
+    mod_fcarray[:, :, :1] = 1 - mod_fcarray[:, :, :1]
     plt.figure(figsize=(14, 4))
     plt.imshow(
-        fcarray[0][
-            :,
-            :,
-            (channel_mapping["red"], channel_mapping["green"], channel_mapping["blue"]),
-        ],
+        mod_fcarray,
         origin="lower",
         aspect="auto",
         extent=[xticks[0], xticks[-1], yticks[0], yticks[-1]],
         interpolation=None,
     )
-
     plt.text(
         0.98,
         0.95,
@@ -167,21 +160,16 @@ def plot_spectrogram(idc_per_bin, site_name, savefig=True):
     ytick_labels = [f"{i//1000}k Hz" for i in ytick_positions]
     plt.yticks(ytick_positions, ytick_labels)
     plt.xticks(xticks_hour, xticks_hour.strftime("%H:%M"))
-
     if savefig:
         filename = rootdir / "figures" / "longspecs" / f"{site_name}_spectrogram.png"
         plt.savefig(filename)
         plt.close()
     else:
         plt.show()
+    return mod_fcarray
 
 
-def plot_channels(idc_per_bin, site_name, savefig=True):
-    fcarray = false_Color_Spectro(
-        idc_per_bin, display=False, unit="hours", figsize=[30, 20]
-    )
-    channel_mapping = {"red": 0, "green": 1, "blue": 2}
-
+def plot_channels(mod_fcarray, site_name, savefig=False):
     fig, ax = plt.subplots(3, 1, figsize=(14, 9))
     for i, (channel, variable) in enumerate(
         zip(
@@ -190,10 +178,12 @@ def plot_channels(idc_per_bin, site_name, savefig=True):
         )
     ):
         color_cmap = (
-            "Reds" if channel == "red" else "Greens" if channel == "green" else "Blues"
+            "Reds_r"
+            if channel == "red"
+            else "Greens_r" if channel == "green" else "Blues_r"
         )
         ax[i].imshow(
-            fcarray[0][:, :, channel_mapping[channel]],
+            mod_fcarray[:, :, i],
             origin="lower",
             aspect="auto",
             cmap=color_cmap,
@@ -223,7 +213,6 @@ def plot_channels(idc_per_bin, site_name, savefig=True):
         ax[i].set_xticks([])
         ax[i].set_yticks([])
     plt.tight_layout()
-
     if savefig:
         filename = rootdir / "figures" / "longspecs" / f"{site_name}_channels.png"
         plt.savefig(filename)
@@ -236,10 +225,19 @@ def plot_channels(idc_per_bin, site_name, savefig=True):
 
 # Extract long term spectrograms
 sites = sorted(get_sites(rootdir))
-for site in tqdm(sites, desc="Processing sites"):
+for i, site in enumerate(tqdm(sites, desc="Processing sites")):
 
     idc_per_bin = process_site(rootdir, site)
     if idc_per_bin is None:
         continue
-    plot_spectrogram(idc_per_bin, site, savefig=True)
-    plot_channels(idc_per_bin, site, savefig=True)
+
+    mod_fcarray = plot_spectrogram(idc_per_bin, site, savefig=True)
+    plot_channels(mod_fcarray, site, savefig=True)
+
+
+sites = sorted(get_sites(rootdir))
+for i, site in enumerate(tqdm(sites, desc="Processing sites")):
+
+    idc_per_bin = process_site(rootdir, site)
+    if idc_per_bin is None:
+        continue

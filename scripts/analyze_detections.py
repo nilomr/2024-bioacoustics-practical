@@ -4,6 +4,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.spatial import distance
+from sklearn.manifold import MDS
 
 rootdir = Path(__file__).parent.parent
 detections_file = Path(rootdir, "data", "derived", "detections.json")
@@ -348,8 +350,7 @@ cumdf_last = cumdf.groupby("site").tail(1)
 
 # calculate the jaccard distance between the species list for all sites and build a
 # distance matrix
-import pandas as pd
-from scipy.spatial import distance
+
 
 # Create a DataFrame where each row represents a site and each column represents a species
 species_df = pd.DataFrame(index=cumdf_last["site"].unique())
@@ -371,7 +372,71 @@ distance_df = pd.DataFrame(
     square_distance_matrix, index=species_df.index, columns=species_df.index
 )
 
-# Plot as a matrix
+# Plot as a matrix, adding the site labels:
 plt.figure(figsize=(10, 10))
-plt.imshow(distance_df, cmap="viridis")
+cmap = plt.get_cmap("viridis")
+cmap.set_bad("black")
+plt.imshow(distance_df, cmap=cmap)
 plt.colorbar(label="Jaccard distance")
+plt.title("Jaccard distance between sites")
+plt.xticks(range(len(distance_df.columns)), distance_df.columns)
+plt.yticks(range(len(distance_df.index)), distance_df.index)
+
+# Plot a MDS of the matrix
+mds = MDS(n_components=2, dissimilarity="precomputed")
+embedding = mds.fit_transform(square_distance_matrix)
+
+plt.figure(figsize=(8, 8))
+for i, site in enumerate(species_df.index):
+    plt.scatter(
+        embedding[i, 0], embedding[i, 1], s=140, color=site_palette[i], label=site
+    )
+    plt.text(
+        embedding[i, 0],
+        embedding[i, 1] + 0.02,
+        site,
+        fontsize=13,
+        ha="center",
+        va="bottom",
+    )
+
+plt.title("MDS of Jaccard $d$ between site communities")
+plt.xlabel("MDS1")
+plt.ylabel("MDS2")
+plt.xticks([])
+plt.yticks([])
+plt.savefig(fig_dir / "community_jaccard_d.png")
+
+
+# ──── SAVE ALL DERIVED DATA TO DISK ──────────────────────────────────────────
+species_counts.to_csv(Path(rootdir, "data", "derived", "species_counts.csv"))
+time_counts.to_csv(Path(rootdir, "data", "derived", "time_counts.csv"))
+species_sites.to_csv(Path(rootdir, "data", "derived", "species_sites.csv"))
+species_time.to_csv(Path(rootdir, "data", "derived", "species_time.csv"))
+species_presence.to_csv(Path(rootdir, "data", "derived", "species_presence.csv"))
+cumdf.to_csv(Path(rootdir, "data", "derived", "cumulative_species.csv"))
+cumdf_last.to_csv(Path(rootdir, "data", "derived", "cumulative_species_last.csv"))
+distance_df.to_csv(Path(rootdir, "data", "derived", "distance_matrix.csv"))
+
+# create a dataframe with the number of detections by site, time and species
+species_site_time = (
+    df.groupby(["site", "start_time", "common_name"]).size().unstack(fill_value=0)
+).reset_index()
+
+species_site_time.to_csv(Path(rootdir, "data", "derived", "species_site_time.csv"))
+
+# Save a readme
+with open(Path(rootdir, "data", "derived", "README.txt"), "w") as file:
+    file.write(
+        """This folder contains the following files:
+- species_counts.csv: Number of detections by species
+- time_counts.csv: Number of detections by time
+- species_sites.csv: Number of detections by species and site
+- species_time.csv: Number of detections by species and time
+- species_presence.csv: Number of species detected by site and time
+- cumulative_species.csv: Cumulative species count by site and time
+- cumulative_species_last.csv: Cumulative species count for the last time bin
+- distance_matrix.csv: Jaccard distance between sites
+- species_site_time.csv: Number of detections by site, time and species
+"""
+    )

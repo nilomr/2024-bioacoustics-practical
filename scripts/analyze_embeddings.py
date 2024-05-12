@@ -113,8 +113,8 @@ plt.xlabel("UMAP 1")
 plt.ylabel("UMAP 2")
 plt.xticks([])
 plt.yticks([])
-plt.gca().set_aspect(0.63)
-plt.savefig(Path(figs_dir, "embeddings.png"))
+plt.gca().set_aspect(1.3)
+plt.savefig(Path(figs_dir, "embeddings.png"), bbox_inches="tight")
 
 
 # Plot the embeddings colored by species
@@ -126,9 +126,9 @@ plt.scatter(
     df[df["common_name"] == "Unknown"]["umap_x"],
     df[df["common_name"] == "Unknown"]["umap_y"],
     label="Unknown",
-    alpha=0.05,
+    alpha=0.5,
     color="#eaeaea",
-    s=1.5,
+    s=0.1,
 )
 for i, (species, group) in enumerate(
     df[df["common_name"] != "Unknown"].groupby("common_name")
@@ -158,8 +158,8 @@ for handle in legend.legend_handles:
     handle.set_alpha(1)
 plt.xticks([])
 plt.yticks([])
-plt.gca().set_aspect(0.63)
-plt.savefig(Path(figs_dir, "embeddings_species.png"))
+plt.gca().set_aspect(1.3)
+plt.savefig(Path(figs_dir, "embeddings_species.png"), bbox_inches="tight")
 
 
 # Plot the embeddings colored by site
@@ -191,8 +191,8 @@ for handle in legend.legend_handles:
     handle.set_alpha(1)
 plt.xticks([])
 plt.yticks([])
-plt.gca().set_aspect(0.63)
-plt.savefig(Path(figs_dir, "embeddings_site.png"))
+plt.gca().set_aspect(1.3)
+plt.savefig(Path(figs_dir, "embeddings_site.png"), bbox_inches="tight")
 
 
 # Plot the embeddings colored by time
@@ -208,8 +208,8 @@ for i, (time, group) in enumerate(df.sort_values("time").groupby("time")):
         group["umap_x"],
         group["umap_y"],
         label=time,
-        alpha=0.2,
-        s=0.5,
+        alpha=0.5,
+        s=1.5,
         color=time_palette[i],
     )
 plt.title("Embeddings colored by time")
@@ -230,10 +230,10 @@ cb = plt.colorbar(
 )
 cb.ax.set_yticklabels(cbarticks)
 cb.ax.set_ylim(0, len(df["time"].unique()))  # Set the colorbar height
-plt.gca().set_aspect(0.63)
+plt.gca().set_aspect(1.3)
 plt.xticks([])
 plt.yticks([])
-plt.savefig(Path(figs_dir, "embeddings_time.png"))
+plt.savefig(Path(figs_dir, "embeddings_time.png"), bbox_inches="tight")
 
 
 # Cluster the embeddings using HDBSCAN
@@ -277,8 +277,8 @@ for handle in legend.legend_handles:
     handle.set_alpha(1)
 plt.xticks([])
 plt.yticks([])
-plt.gca().set_aspect(0.63)
-plt.savefig(Path(figs_dir, "embeddings_cluster.png"))
+plt.gca().set_aspect(1.3)
+plt.savefig(Path(figs_dir, "embeddings_cluster.png"), bbox_inches="tight")
 
 
 # Plot sample spectrograms for each cluster
@@ -331,7 +331,7 @@ for cluster, group in df.groupby("cluster"):
                 color=cluster_palette_4[cluster],
             )
 plt.tight_layout()
-plt.savefig(Path(figs_dir, "embeddings_cluster_spectrograms.png"))
+plt.savefig(Path(figs_dir, "embeddings_cluster_spectrograms.png"), bbox_inches="tight")
 
 # get file names for cluster 2
 cluster_2_files = df[df["cluster"] == 2][
@@ -382,8 +382,8 @@ plt.yticks([])
 for handle in plt.gca().get_legend().legendHandles:
     handle.set_sizes([50.0])
     handle.set_alpha(1)
-plt.gca().set_aspect(0.8)
-plt.savefig(Path(figs_dir, "embeddings_birds_species.png"))
+plt.gca().set_aspect(1)
+plt.savefig(Path(figs_dir, "embeddings_birds_species.png"), bbox_inches="tight")
 
 # Now color by site
 plt.figure(figsize=(figwidth, figwidth))
@@ -408,8 +408,8 @@ plt.yticks([])
 for handle in plt.gca().get_legend().legendHandles:
     handle.set_sizes([50.0])
     handle.set_alpha(1)
-plt.gca().set_aspect(0.8)
-plt.savefig(Path(figs_dir, "embeddings_birds_site.png"))
+plt.gca().set_aspect(1)
+plt.savefig(Path(figs_dir, "embeddings_birds_site.png"), bbox_inches="tight")
 
 
 # ──── WREN ANALYSIS ──────────────────────────────────────────────────────────
@@ -451,9 +451,9 @@ for handle in legend.legend_handles:
     handle.set_alpha(1)
 plt.xticks([])
 plt.yticks([])
-plt.gca().set_aspect(0.63)
+plt.gca().set_aspect(0.9)
 plt.title("Eurasian Wren embeddings by site", fontsize=textsize)
-plt.savefig(Path(figs_dir, "wren_sites.png"))
+plt.savefig(Path(figs_dir, "wren_sites.png"), bbox_inches="tight")
 
 # ──── CLUSTER WREN DATA ──────────────────────────────────────────────────────
 
@@ -491,9 +491,9 @@ for handle in legend.legend_handles:
     handle.set_alpha(1)
 plt.xticks([])
 plt.yticks([])
-plt.gca().set_aspect(0.63)
+plt.gca().set_aspect(0.9)
 plt.title("Eurasian Wren embeddings by cluster", fontsize=textsize)
-plt.savefig(Path(figs_dir, "wren_clusters.png"))
+plt.savefig(Path(figs_dir, "wren_clusters.png"), bbox_inches="tight")
 
 
 # get the file names and times for each cluster
@@ -553,7 +553,7 @@ for cluster, files in cluster_files.items():
         # print file name and cluster
         print(f"File name: {file_name} from cluster {cluster} and site {site}")
 plt.tight_layout()
-plt.savefig(Path(figs_dir, "wren_clusters_spectrograms.png"))
+plt.savefig(Path(figs_dir, "wren_clusters_spectrograms.png"), bbox_inches="tight")
 
 
 # ──── DISTANCE BETWEEN EMBEDDINGS FOR EACH SITE ACROSS TIME ──────────────────
@@ -631,7 +631,7 @@ plt.legend(
 for handle in plt.gca().get_legend().legendHandles:
     handle.set_linewidth(7)
     handle.set_alpha(1)
-plt.savefig(Path(figs_dir, "site_distances.png"))
+plt.savefig(Path(figs_dir, "site_distances.png"), bbox_inches="tight")
 
 # Get the point change for AM49
 site_AM49 = site_distances[site_distances["site1"] == "AM49"].reset_index(drop=True)
@@ -669,4 +669,4 @@ colorbar.set_label("Distance", fontsize=textsize)
 plt.xticks(range(len(site_list)), site_list, rotation=0, fontsize=textsize)
 plt.yticks(range(len(site_list)), site_list, fontsize=textsize)
 plt.title("Average distance between Sites", fontsize=textsize)
-plt.savefig(Path(figs_dir, "site_distances_matrix.png"))
+plt.savefig(Path(figs_dir, "site_distances_matrix.png"), bbox_inches="tight")

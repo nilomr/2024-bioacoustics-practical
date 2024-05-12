@@ -440,3 +440,8 @@ with open(Path(rootdir, "data", "derived", "README.txt"), "w") as file:
 - species_site_time.csv: Number of detections by site, time and species
 """
     )
+
+
+# get all rows where common_name includes goldcrest
+df_nona = df.dropna(subset=["common_name"])
+goldcrest_df = df_nona[df_nona["common_name"].str.contains("goldfinch", case=False)]
